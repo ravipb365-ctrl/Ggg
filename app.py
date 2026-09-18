@@ -70,7 +70,7 @@ HTML_TEMPLATE = """
     <div class="container">
         <h2>Advance Number Lookup</h2>
         <form method="POST">
-            <input type="text" name="num" placeholder="Phone number enter karein..." required>
+            <input type="text" name="num" placeholder="Enter 10-digit mobile number..." required>
             <button type="submit">Search Details</button>
         </form>
         {% if result %}
@@ -83,7 +83,6 @@ HTML_TEMPLATE = """
 """
 
 def clean_terminal_output(text):
-    # Terminal ke color codes aur control escape characters hatane ke liye
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     cleaned = ansi_escape.sub('', text)
     cleaned = re.sub(r'\[\??\d+[a-zA-Z]', '', cleaned)
@@ -96,8 +95,8 @@ def index():
         target_number = request.form.get("num", "").strip()
         if target_number:
             try:
-                # Terminal disclaimer bypass karne ke liye pehle enter, fir number, fir enter pass hota hai
-                input_sequence = f"\ny\n{target_number}\n\n"
+                # Sequence: Disclaimer enter -> Option 1 -> Phone number -> Final enter
+                input_sequence = f"\n1\n{target_number}\n\n"
                 
                 process = subprocess.Popen(
                     ["python", "anurix.py"],
@@ -111,7 +110,7 @@ def index():
                 output = clean_terminal_output(raw_output)
             except subprocess.TimeoutExpired:
                 process.kill()
-                output = "Error: Process time out ho gaya. Number response aane me der ho rahi hai."
+                output = "Error: Timeout ho gaya. Number response aane me der ho rahi hai."
             except Exception as e:
                 output = f"Execution Error: {str(e)}"
     return render_template_string(HTML_TEMPLATE, result=output)
