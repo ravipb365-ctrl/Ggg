@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from flask import Flask, request, render_template_string
 
@@ -21,14 +22,14 @@ HTML_TEMPLATE = """
             padding: 20px; 
         }
         .container { 
-            max-width: 500px; 
+            max-width: 550px; 
             width: 100%; 
             background: #1e293b; 
             padding: 25px; 
             border-radius: 12px; 
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); 
         }
-        h2 { margin-top: 0; color: #38bdf8; }
+        h2 { margin-top: 0; color: #38bdf8; text-align: center; }
         input { 
             width: 100%; 
             padding: 12px; 
@@ -60,7 +61,8 @@ HTML_TEMPLATE = """
             white-space: pre-wrap; 
             font-size: 13px; 
             color: #4ade80; 
-            border: 1px solid #1e293b;
+            border: 1px solid #334155;
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -80,6 +82,13 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def clean_terminal_output(text):
+    # Terminal ke color codes aur control escape characters hatane ke liye
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    cleaned = ansi_escape.sub('', text)
+    cleaned = re.sub(r'\[\??\d+[a-zA-Z]', '', cleaned)
+    return cleaned.strip()
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     output = ""
@@ -87,7 +96,9 @@ def index():
         target_number = request.form.get("num", "").strip()
         if target_number:
             try:
-                # Backend me anurix.py ko run karke number input pass karta hai
+                # Terminal disclaimer bypass karne ke liye pehle enter, fir number, fir enter pass hota hai
+                input_sequence = f"\ny\n{target_number}\n\n"
+                
                 process = subprocess.Popen(
                     ["python", "anurix.py"],
                     stdin=subprocess.PIPE,
@@ -95,8 +106,12 @@ def index():
                     stderr=subprocess.PIPE,
                     text=True
                 )
-                stdout, stderr = process.communicate(input=f"{target_number}\n", timeout=30)
-                output = stdout if stdout else stderr
+                stdout, stderr = process.communicate(input=input_sequence, timeout=45)
+                raw_output = stdout if stdout else stderr
+                output = clean_terminal_output(raw_output)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                output = "Error: Process time out ho gaya. Number response aane me der ho rahi hai."
             except Exception as e:
                 output = f"Execution Error: {str(e)}"
     return render_template_string(HTML_TEMPLATE, result=output)
@@ -104,4 +119,4 @@ def index():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-  
+    
